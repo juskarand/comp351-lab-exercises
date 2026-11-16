@@ -1,0 +1,9 @@
+
+
+Resource: LEGO Sets
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install fastapi uvicorn
+uvicorn main:app --reload

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Activity 9 - Part B Product Catalog</title>
+
+    <script defer src="./persist.min.js"></script>
+    <script defer src="./alpine.min.js"></script>
+
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .product-card {
+      border: 1px solid #ccc;
+      padding: 1rem;
+      margin: 0.75rem 0;
+      border-radius: 8px;
+      max-width: 320px;
+    }
+    .notification {
+      padding: 0.5rem;
+      margin: 0.25rem 0;
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+    }
+    .cart-box {
+      border: 1px solid #aaa;
+      padding: 1rem;
+      margin-top: 1rem;
+      max-width: 420px;
+      background: #f8f8f8;
+    }
+    button {
+      margin-top: 8px;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Activity 9: Product Catalog</h1>
+
+    <div x-data>
+    <p>Items in cart: <strong x-text="$store.cart.itemCount"></strong></p>
+    <p>Total: $<strong x-text="$store.cart.total.toFixed(2)"></strong></p>
+    <p x-show="$store.cart.isEmpty">Your cart is empty.</p>
+  </div>
+
+  <!-- Notification listener -->
+  <div
+    x-data="{ messages: [] }"
+    @notify.window="
+      messages.push($event.detail);
+      setTimeout(() => messages.shift(), 3000)
+    "
+  >
+    <template x-for="(msg, i) in messages" :key="i">
+      <div class="notification" x-text="msg.text"></div>
+    </template>
+  </div>
+
+  <h2>Products</h2>
+
+    <div x-data="{
+    products: [
+      { id: 1, name: 'Widget', price: 29.99, description: 'A useful all-purpose widget.' },
+      { id: 2, name: 'Gadget', price: 49.99, description: 'A more advanced gadget for power users.' },
+      { id: 3, name: 'Gizmo',  price: 19.99, description: 'A compact gizmo for everyday tasks.' }
+    ]
+  }">
+    <template x-for="product in products" :key="product.id">
+      <div x-data="productCard(product)" class="product-card">
+        <h3 x-text="product.name"></h3>
+        <p>$<span x-text="product.price.toFixed(2)"></span></p>
+
+        <button @click="expanded = !expanded" x-text="expanded ? 'Hide Details' : 'Show Details'"></button>
+        <button @click="addToCart()">Add to Cart</button>
+
+        <div x-show="expanded">
+          <p x-text="product.description"></p>
+          <label>Private note for this product:</label>
+          <input type="text" x-model="note" placeholder="Local note only for this card">
+          <p><em>Note:</em> <span x-text="note || 'None'"></span></p>
+        </div>
+      </div>
+   </template>
+  </div>
+
+    <div x-data class="cart-box">
+    <h2>Cart</h2>
+
+    <template x-for="item in $store.cart.items" :key="item.id">
+      <div>
+        <span x-text="item.name"></span>
+        —
+        <span>Qty: <span x-text="item.quantity"></span></span>
+        —
+        <span>$<span x-text="(item.price * item.quantity).toFixed(2)"></span></span>
+        <button @click="$store.cart.remove(item.id)">Remove</button>
+      </div>
+    </template>
+
+    <p x-show="$store.cart.isEmpty">No items yet.</p>
+  </div>
+
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.store('cart', {
+        items: Alpine.$persist([]).as('cart_items'),
+
+        add(product) {
+          const existing = this.items.find(i => i.id === product.id)
+          if (existing) {
+            existing.quantity++
+          } else {
+            this.items.push({ ...product, quantity: 1 })
+          }
+        },
+
+        remove(productId) {
+          this.items = this.items.filter(i => i.id !== productId)
+        },
+
+        get itemCount() {
+          return this.items.reduce((sum, item) => sum + item.quantity, 0)
+        },
+
+        get total() {
+          return this.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+        },
+
+        get isEmpty() {
+          return this.items.length === 0
+        }
+      })
+
+      Alpine.data('productCard', (product) => ({
+        product,
+        expanded: false,
+        note: '',
+
+        addToCart() {
+          this.$store.cart.add(this.product)
+          this.$dispatch('notify', { text: this.product.name + ' added to cart' })
+        }
+      }))
+    })
+  </script>
+</body>
+</html>

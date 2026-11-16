@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activity 9: State Management</title>
+
+    <script defer src="./persist.min.js"></script>
+    <script defer src="./alpine.min.js"></script>
+
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .product-card {
+      border: 1px solid #ccc;
+      padding: 1rem;
+      margin: 0.5rem;
+      display: inline-block;
+      width: 200px;
+      vertical-align: top;
+    }
+    .notification {
+      padding: 0.5rem;
+      margin: 0.25rem 0;
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+    }
+  </style>
+</head>
+<body>
+  <h1>Activity 9: State Management</h1>
+
+  <div x-data>
+    <p>
+      Favorites:
+      <strong x-text="$store.favorites.count"></strong>
+    </p>
+    <p x-show="$store.favorites.isEmpty">No favorites yet.</p>
+  </div>
+
+  <div
+    x-data="{ messages: [] }"
+    @notify.window="
+      messages.push($event.detail);
+      setTimeout(() => messages.shift(), 3000)
+    "
+  >
+    <template x-for="(msg, i) in messages" :key="i">
+      <div class="notification" x-text="msg.text"></div>
+    </template>
+  </div>
+
+  <h2>Products</h2>
+
+  <div x-data="{
+    products: [
+      { id: 1, name: 'Widget', price: 29.99 },
+      { id: 2, name: 'Gadget', price: 49.99 },
+      { id: 3, name: 'Gizmo',  price: 19.99 }
+    ]
+  }">
+    <template x-for="product in products" :key="product.id">
+      <div class="product-card">
+        <h3 x-text="product.name"></h3>
+        <p>$<span x-text="product.price.toFixed(2)"></span></p>
+
+        <button
+          @click="
+            $store.favorites.add(product);
+            $dispatch('notify', { text: product.name + ' added' })
+          "
+        >
+          Add to Favorites
+        </button>
+      </div>
+    </template>
+  </div>
+
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.store('favorites', {
+        items: Alpine.$persist([]).as('my_favorites'),
+
+        add(product) {
+          if (!this.items.find(i => i.id === product.id)) {
+            this.items.push(product)
+          }
+        },
+
+        remove(productId) {
+          this.items = this.items.filter(i => i.id !== productId)
+        },
+
+        has(productId) {
+          return this.items.some(i => i.id === productId)
+        },
+
+        get count() {
+          return this.items.length
+        },
+
+        get isEmpty() {
+          return this.items.length === 0
+        }
+      })
+    })
+  </script>
+</body>
+</html>

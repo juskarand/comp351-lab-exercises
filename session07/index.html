@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activity 7: Alpine.js Components</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <h1>Activity 7: Alpine.js Components</h1>
+
+  <h2>Part 1: Reactive Counter</h2>
+  <div x-data="{ count: 0 }">
+    <h3>Counter: <span x-text="count"></span></h3>
+
+    <button @click="count--" :disabled="count <= 0">-</button>
+    <button @click="count++">+</button>
+    <button @click="count = 0">Reset</button>
+
+    <p x-show="count >= 10">You reached 10!</p>
+  </div>
+
+  <h2>Part 2: Registration Form with Validation</h2>
+  <div x-data="{
+    email: '',
+    password: '',
+    get isValidEmail() { return this.email.includes('@'); },
+    get isValidPassword() { return this.password.length >= 8; },
+    get canSubmit() { return this.isValidEmail && this.isValidPassword; }
+  }">
+    <div>
+      <label for="email">Email:</label>
+      <input type="email" id="email" x-model="email" placeholder="Email">
+      <p x-show="email && !isValidEmail" style="color: red;">Invalid email format</p>
+    </div>
+
+    <div>
+      <label for="password">Password:</label>
+      <input type="password" id="password" x-model="password" placeholder="Password (8+ chars)">
+      <p x-show="password && !isValidPassword" style="color: red;">Password must be 8+ characters</p>
+    </div>
+
+    <button :disabled="!canSubmit">Register</button>
+    <p x-show="canSubmit" style="color: green;">Form is valid</p>
+  </div>
+</body>
+</html>

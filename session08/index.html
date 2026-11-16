@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Activity 8: Components and Fetch</title>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <style>
+    .card { border: 1px solid #ccc; padding: 1rem; margin: 0.5rem 0; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Activity 8: Components and Fetch</h1>
+
+  <!-- Part 1: Reusable Card Component -->
+  <h2>Part 1: Reusable Card Component</h2>
+
+  <div x-data="card('What is Alpine.js?', 'A lightweight JavaScript framework.')">
+    <div class="card">
+      <h3 @click="toggle()" style="cursor: pointer;" x-text="title"></h3>
+      <div x-show="expanded" x-transition x-text="content"></div>
+    </div>
+  </div>
+
+  <div x-data="card('Why use components?', 'Encapsulation, reusability, testability.')">
+    <div class="card">
+      <h3 @click="toggle()" style="cursor: pointer;" x-text="title"></h3>
+      <div x-show="expanded" x-transition x-text="content"></div>
+    </div>
+  </div>
+
+  <!-- Part 2: Data-Fetching Component -->
+  <h2>Part 2: Data-Fetching Component</h2>
+
+  <div x-data="{
+    posts: [],
+    loading: true,
+    error: null,
+    async init() {
+      try {
+        const res = await fetch('https://jsonplaceholder.typicode.com/posts?_limit=5');
+        if (!res.ok) throw new Error('Request failed');
+        this.posts = await res.json();
+      } catch (e) {
+        this.error = 'Failed to load posts';
+      }
+      this.loading = false;
+    }
+  }">
+    <div x-show="loading">Loading posts...</div>
+    <div x-show="error" class="error" x-text="error"></div>
+
+    <template x-for="post in posts" :key="post.id">
+      <article class="card">
+        <h3 x-text="post.title"></h3>
+        <p x-text="post.body"></p>
+      </article>
+    </template>
+
+    <p x-show="!loading && posts.length === 0 && !error">
+      No posts found.
+    </p>
+  </div>
+
+  <!-- Part 3: Registration Form -->
+  <h2>Part 3: Registration Form</h2>
+
+  <script>
+    function card(title, content) {
+      return {
+        title,
+        content,
+        expanded: false,
+        toggle() { this.expanded = !this.expanded; }
+      };
+    }
+
+    function registrationForm() {
+      return {
+        username: '',
+        email: '',
+        password: '',
+        confirm: '',
+        get isValidUsername() { return this.username.length >= 3; },
+        get isValidEmail() { return this.email.includes('@'); },
+        get isValidPassword() { return this.password.length >= 8; },
+        get passwordsMatch() { return this.password === this.confirm; },
+        get canSubmit() {
+          return this.isValidUsername
+            && this.isValidEmail
+            && this.isValidPassword
+            && this.passwordsMatch;
+        }
+      };
+    }
+  </script>
+
+  <form x-data="registrationForm()" @submit.prevent="alert('Form submitted!')">
+    <div>
+      <label for="username">Username:</label>
+      <input type="text" id="username" x-model="username" />
+      <span x-show="username && !isValidUsername" class="error">
+        Min 3 characters
+      </span>
+    </div>
+
+    <div>
+      <label for="reg-email">Email:</label>
+      <input type="email" id="reg-email" x-model="email" />
+      <span x-show="email && !isValidEmail" class="error">
+        Must contain @
+      </span>
+    </div>
+
+    <div>
+      <label for="reg-password">Password:</label>
+      <input type="password" id="reg-password" x-model="password" />
+      <span x-show="password && !isValidPassword" class="error">
+        Min 8 characters
+      </span>
+    </div>
+
+    <div>
+      <label for="reg-confirm">Confirm:</label>
+      <input type="password" id="reg-confirm" x-model="confirm" />
+      <span x-show="confirm && !passwordsMatch" class="error">
+        Passwords do not match
+      </span>
+    </div>
+
+    <button type="submit" :disabled="!canSubmit">Register</button>
+  </form>
+
+  <!-- Part 4: Component Communication -->
+  <h2>Part 4: Component Communication</h2>
+
+  <div x-data="{
+    products: [
+      { id: 1, name: 'Widget', price: 9.99, description: 'A useful widget' },
+      { id: 2, name: 'Gadget', price: 19.99, description: 'An advanced gadget' },
+      { id: 3, name: 'Doohickey', price: 4.99, description: 'A simple doohickey' }
+    ],
+    selectedId: null
+  }">
+    <!-- Because both the product list and detail view are inside the same parent x-data,
+         they inherit the same reactive scope. That means they can read/write selectedId
+         without $dispatch or a global store. -->
+
+    <!-- Product list -->
+    <h3>Products</h3>
+    <ul>
+      <template x-for="product in products" :key="product.id">
+        <li
+          @click="selectedId = product.id"
+          style="cursor: pointer;"
+          :style="selectedId === product.id ? 'font-weight: bold' : ''"
+          x-text="product.name">
+        </li>
+      </template>
+    </ul>
+
+    <!-- Detail view -->
+    <div x-show="selectedId">
+      <h3>Product Details</h3>
+      <template x-if="selectedId">
+        <div>
+          <p><strong>Name:</strong>
+            <span x-text="products.find(p => p.id === selectedId)?.name"></span>
+          </p>
+          <p><strong>Price:</strong>
+            $<span x-text="products.find(p => p.id === selectedId)?.price.toFixed(2)"></span>
+          </p>
+          <p><strong>Description:</strong>
+            <span x-text="products.find(p => p.id === selectedId)?.description"></span>
+          </p>
+        </div>
+      </template>
+    </div>
+  </div>
+</body>
+</html>
