@@ -1,0 +1,39 @@
+# Session 6: Docker Compose for JWT Authentication API + Frontend
+#
+# Usage:
+#   docker compose up -d      # Start all services in background
+#   docker compose down       # Stop services
+#   docker compose logs -f    # Follow logs from all services
+#
+# The API will be available at http://localhost:8000
+# Swagger docs at http://localhost:8000/docs
+# Frontend at http://localhost:8080
+
+services:
+  # FastAPI backend with JWT authentication
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: session06-backend
+    ports:
+      - "8000:8000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production-use-env-var}
+    volumes:
+      # Mount backend code for hot-reloading during development
+      - ./backend:/app
+      # Mount test scripts into container
+      - ./tests:/app/tests
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Static frontend for XSS demonstration
+  frontend:
+    image: python:3.12-slim
+    container_name: session06-frontend
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./frontend:/srv
+    working_dir: /srv
+    command: python3 -m http.server 8080

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XSS Secure Demo - Session 06</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2e7d32;
+            border-bottom: 3px solid #2e7d32;
+            padding-bottom: 10px;
+        }
+        #welcome {
+            font-size: 24px;
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #e8f5e9;
+            border-left: 4px solid #2e7d32;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 2px solid #28a745;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .success h3 {
+            margin-top: 0;
+            color: #155724;
+        }
+        .code-block {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .token-display {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+        }
+        .comparison {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ XSS Secure Page (textContent)</h1>
+
+        <!--
+            SECURITY DEFENSE:
+            This page uses textContent to display user input from the URL query parameter.
+            textContent treats ALL input as plain text, preventing any HTML/JavaScript execution.
+
+            WHY THIS IS SAFE:
+            - User input from URL (?name=...) is displayed as text only
+            - The textContent property does NOT interpret HTML or JavaScript
+            - Even if input contains <script> tags, they are displayed as text, not executed
+            - Attackers cannot inject malicious code through this interface
+        -->
+
+        <div id="welcome"></div>
+
+        <div class="success">
+            <h3>✓ SECURE IMPLEMENTATION</h3>
+            <p>This page is protected against XSS attacks using proper HTML escaping.</p>
+            <p><strong>Secure code pattern:</strong></p>
+            <div class="code-block">
+document.getElementById('welcome').textContent = 'Welcome ' + name;
+            </div>
+            <p>The <code>textContent</code> property treats all input as text, preventing script execution.</p>
+        </div>
+
+        <div class="token-display">
+            <strong>Simulated JWT Token (stored in localStorage):</strong>
+            <div class="code-block" id="token-display"></div>
+            <p style="font-size: 14px; color: #666;">
+                Even with the same localStorage token as the vulnerable page,
+                XSS attacks cannot steal it because textContent prevents code execution.
+            </p>
+        </div>
+
+        <h2>How to Verify the Security:</h2>
+        <ol>
+            <li>Open this page with a safe parameter:
+                <div class="code-block">secure.html?name=Alice</div>
+            </li>
+            <li>Try the SAME XSS payload that worked on vulnerable.html:
+                <div class="code-block">secure.html?name=&lt;img src=x onerror="alert('XSS: Token is ' + localStorage.getItem('jwt_token'))"&gt;</div>
+            </li>
+            <li>Observe that the payload is displayed as TEXT, not executed as code</li>
+            <li>No alert appears - the attack is neutralized!</li>
+        </ol>
+
+        <div class="comparison">
+            <h2>textContent vs innerHTML Comparison:</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background-color: #e9ecef;">
+                    <th style="padding: 10px; text-align: left; border: 1px solid #dee2e6;">Property</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #dee2e6;">Behavior</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #dee2e6;">Security</th>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #dee2e6;"><code>textContent</code></td>
+                    <td style="padding: 10px; border: 1px solid #dee2e6;">Displays input as plain text</td>
+                    <td style="padding: 10px; border: 1px solid #dee2e6;">✅ Safe - No code execution</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #dee2e6;"><code>innerHTML</code></td>
+                    <td style="padding: 10px; border: 1px solid #dee2e6;">Parses and renders HTML</td>
+                    <td style="padding: 10px; border: 1px solid #dee2e6;">❌ Vulnerable - Executes scripts</td>
+                </tr>
+            </table>
+        </div>
+
+        <h2>Why textContent Prevents XSS:</h2>
+        <ul>
+            <li><strong>No HTML parsing</strong> - Browser treats input as literal text characters</li>
+            <li><strong>Automatic escaping</strong> - Special characters like &lt; and &gt; are displayed, not interpreted</li>
+            <li><strong>No event handlers</strong> - onerror, onclick, etc. are shown as text, not attached to elements</li>
+            <li><strong>Same for Alpine.js</strong> - Using <code>x-text</code> is equivalent to textContent (secure)</li>
+        </ul>
+
+        <h2>Real-World Application:</h2>
+        <p>In Activity 6, you'll verify that the Todo application uses secure patterns:</p>
+        <ul>
+            <li><strong>Flask Templates:</strong> <code>{{ "{{" }} variable {{ "}}" }}</code> automatically escapes HTML (like textContent)</li>
+            <li><strong>Alpine.js:</strong> <code>x-text="variable"</code> uses textContent behavior (secure)</li>
+            <li><strong>Avoid:</strong> <code>{{ "{{" }} variable | safe {{ "}}" }}</code> in Flask (like innerHTML - dangerous!)</li>
+            <li><strong>Avoid:</strong> <code>x-html="variable"</code> in Alpine.js (like innerHTML - dangerous!)</li>
+        </ul>
+
+        <p style="margin-top: 30px; font-size: 14px; color: #666;">
+            📝 <strong>Learning Objective:</strong> Always use textContent (or x-text in Alpine.js)
+            when displaying user-generated content. Only use innerHTML/x-html for trusted,
+            sanitized content from your own application.
+        </p>
+
+        <p style="font-size: 14px; color: #666;">
+            📎 Compare with <a href="vulnerable.html">vulnerable.html</a> to see the vulnerable implementation.
+        </p>
+    </div>
+
+    <script>
+        // Store the same fake JWT token as vulnerable.html for comparison
+        const fakeToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbkBleGFtcGxlLmNvbSIsImV4cCI6MTcwOTMyNDAwMH0.dummySignatureForDemo';
+        localStorage.setItem('jwt_token', fakeToken);
+
+        // Display the token on the page
+        document.getElementById('token-display').textContent = fakeToken;
+
+        // Get the 'name' parameter from the URL query string
+        const urlParams = new URLSearchParams(window.location.search);
+        const name = urlParams.get('name');
+
+        // SECURE PATTERN: Using textContent with user input
+        // This prevents XSS attacks because textContent treats everything as plain text
+        if (name) {
+            // ✅ SECURE: User input rendered as text only, no HTML parsing
+            document.getElementById('welcome').textContent = 'Welcome ' + name + '!';
+        } else {
+            document.getElementById('welcome').textContent = 'Welcome! Add ?name=YourName to the URL to test.';
+        }
+
+        // WHY THIS IS SECURE:
+        // If an attacker provides: ?name=<img src=x onerror="alert('XSS')">
+        // The browser will:
+        // 1. Display the LITERAL TEXT: "Welcome <img src=x onerror="alert('XSS')">!"
+        // 2. NOT create an <img> element
+        // 3. NOT trigger any event handlers
+        // 4. NOT execute any JavaScript
+        //
+        // The attack payload is completely neutralized because textContent
+        // converts all HTML/JavaScript into harmless text display.
+        //
+        // TECHNICAL DETAIL:
+        // textContent automatically escapes special characters:
+        // - '<' becomes the text '<' (not an opening tag)
+        // - '>' becomes the text '>' (not a closing tag)
+        // - '"' becomes the text '"' (not a string delimiter)
+        //
+        // This is equivalent to server-side HTML escaping in Flask templates
+        // when you use {{ variable }} without the |safe filter.
+    </script>
+</body>
+</html>

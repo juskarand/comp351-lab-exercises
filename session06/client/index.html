@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session 6: JWT Authentication Client</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .auth-section {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .auth-section h2 {
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.5rem;
+            box-sizing: border-box;
+        }
+        .hidden {
+            display: none;
+        }
+        .user-info {
+            background: #e3f2fd;
+            padding: 1rem;
+            border-radius: 4px;
+        }
+        .error {
+            color: #c00;
+            background: #fee;
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        .success {
+            color: #080;
+            background: #efe;
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        button {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            margin-right: 0.5rem;
+        }
+        button.danger {
+            background: #f44336;
+            color: white;
+            border: none;
+        }
+        .token-display {
+            background: #f5f5f5;
+            padding: 0.5rem;
+            border-radius: 4px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+        }
+        .tasks-section {
+            margin-top: 2rem;
+        }
+        h2 {
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>JWT Authentication Client</h1>
+    <p>Session 6: Secure authentication with JSON Web Tokens</p>
+
+    <!-- Login Section (shown when logged out) -->
+    <div id="loginSection" class="auth-section">
+        <h2>Login</h2>
+        <div id="loginError" class="error hidden"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="loginEmail">Email</label>
+                <input type="email" id="loginEmail" required>
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" required>
+            </div>
+            <button type="submit">Login</button>
+            <button type="button" id="showRegister">Register Instead</button>
+        </form>
+    </div>
+
+    <!-- Register Section (hidden by default) -->
+    <div id="registerSection" class="auth-section hidden">
+        <h2>Register</h2>
+        <div id="registerError" class="error hidden"></div>
+        <div id="registerSuccess" class="success hidden"></div>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="regEmail">Email</label>
+                <input type="email" id="regEmail" required>
+            </div>
+            <div class="form-group">
+                <label for="regPassword">Password</label>
+                <input type="password" id="regPassword" required minlength="8">
+            </div>
+            <button type="submit">Register</button>
+            <button type="button" id="showLogin">Back to Login</button>
+        </form>
+    </div>
+
+    <!-- Logged In Section (shown when authenticated) -->
+    <div id="loggedInSection" class="auth-section hidden">
+        <h2>Welcome!</h2>
+        <div id="userInfo" class="user-info"></div>
+
+        <h3>Current Token</h3>
+        <div id="tokenDisplay" class="token-display"></div>
+
+        <div style="margin-top: 1rem;">
+            <button id="refreshUser">Refresh User Info</button>
+            <button id="logoutBtn" class="danger">Logout</button>
+        </div>
+    </div>
+
+    <!-- Protected Tasks Section -->
+    <div id="tasksSection" class="tasks-section hidden">
+        <h2>Your Tasks (Protected)</h2>
+        <div id="tasksError" class="error hidden"></div>
+        <div id="tasksList"></div>
+
+        <h3>Create Task</h3>
+        <form id="taskForm">
+            <div class="form-group">
+                <label for="taskTitle">Title</label>
+                <input type="text" id="taskTitle" required>
+            </div>
+            <button type="submit">Create Task</button>
+        </form>
+    </div>
+
+    <h2>Session 2 Concepts Applied</h2>
+    <ul>
+        <li><code>async/await</code> - Sequential auth flow</li>
+        <li><code>destructuring</code> - Extract token from response</li>
+        <li><code>template literals</code> - Authorization header construction</li>
+        <li><code>localStorage</code> - Token persistence across page reloads</li>
+        <li><code>spread operator</code> - Merge auth headers with other options</li>
+        <li><code>conditional logic</code> - Show/hide UI based on auth state</li>
+    </ul>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        // =====================================================================
+        // State
+        // =====================================================================
+        let currentUser = null;
+
+        // =====================================================================
+        // DOM Elements
+        // =====================================================================
+        const loginSection = document.getElementById('loginSection');
+        const registerSection = document.getElementById('registerSection');
+        const loggedInSection = document.getElementById('loggedInSection');
+        const tasksSection = document.getElementById('tasksSection');
+
+        // =====================================================================
+        // Authentication Functions
+        // =====================================================================
+
+        // Login: Get JWT token using OAuth2 form format
+        const login = async (email, password) => {
+            // OAuth2PasswordRequestForm expects form-encoded data, not JSON
+            // This is different from our previous JSON API calls
+            const formData = new URLSearchParams();
+            formData.append('username', email);  // OAuth2 uses 'username' field
+            formData.append('password', password);
+
+            const response = await fetch(`${API_URL}/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Login failed');
+            }
+
+            // =====================================================================
+            // Session 2 Concept: Destructuring to extract specific properties
+            // Extract access_token and token_type from the response object
+            // =====================================================================
+            const { access_token, token_type } = await response.json();
+
+            // =====================================================================
+            // Session 2 Concept: localStorage for persistent storage
+            // Token survives page refreshes and browser restarts
+            // =====================================================================
+            localStorage.setItem('token', access_token);
+
+            return access_token;
+        };
+
+        // Register new user
+        const register = async (email, password) => {
+            const response = await fetch(`${API_URL}/users/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Registration failed');
+            }
+
+            return response.json();
+        };
+
+        // Get current user (protected endpoint)
+        const getCurrentUser = async () => {
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                throw new Error('Not authenticated');
+            }
+
+            const response = await fetch(`${API_URL}/users/me`, {
+                headers: {
+                    // =====================================================================
+                    // Session 2 Concept: Template literal for dynamic string
+                    // Construct the Bearer token authorization header
+                    // =====================================================================
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    // Token expired or invalid - clean up
+                    localStorage.removeItem('token');
+                    throw new Error('Session expired');
+                }
+                throw new Error('Failed to get user');
+            }
+
+            return response.json();
+        };
+
+        // Logout: Clear stored token
+        const logout = () => {
+            localStorage.removeItem('token');
+            currentUser = null;
+            updateUI();
+        };
+
+        // =====================================================================
+        // Protected API Calls
+        // =====================================================================
+
+        // =====================================================================
+        // Session 2 Concept: Spread operator for merging objects
+        // authFetch adds Authorization header to any request options
+        // =====================================================================
+        const authFetch = async (url, options = {}) => {
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                throw new Error('Not authenticated');
+            }
+
+            // Merge auth headers with any existing headers using spread
+            const authOptions = {
+                ...options,
+                headers: {
+                    ...options.headers,
+                    'Authorization': `Bearer ${token}`
+                }
+            };
+
+            const response = await fetch(url, authOptions);
+
+            // Handle expired token
+            if (response.status === 401) {
+                logout();
+                throw new Error('Session expired');
+            }
+
+            return response;
+        };
+
+        // Get user's tasks (protected endpoint)
+        const getTasks = async () => {
+            const response = await authFetch(`${API_URL}/tasks/`);
+            if (!response.ok) throw new Error('Failed to load tasks');
+            return response.json();
+        };
+
+        // Create task (protected endpoint)
+        const createTask = async (title) => {
+            const response = await authFetch(`${API_URL}/tasks/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title })
+            });
+            if (!response.ok) throw new Error('Failed to create task');
+            return response.json();
+        };
+
+        // =====================================================================
+        // UI Functions
+        // =====================================================================
+
+        const showError = (elementId, message) => {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.classList.remove('hidden');
+        };
+
+        const hideError = (elementId) => {
+            document.getElementById(elementId).classList.add('hidden');
+        };
+
+        // =====================================================================
+        // Session 2 Concept: Conditional logic for UI state
+        // Toggle visibility of sections based on authentication status
+        // =====================================================================
+        const updateUI = () => {
+            const isLoggedIn = !!localStorage.getItem('token') && currentUser;
+
+            // Toggle visibility using classList
+            loginSection.classList.toggle('hidden', isLoggedIn);
+            registerSection.classList.add('hidden');
+            loggedInSection.classList.toggle('hidden', !isLoggedIn);
+            tasksSection.classList.toggle('hidden', !isLoggedIn);
+
+            if (isLoggedIn && currentUser) {
+                // Destructuring user data for display
+                const { id, email, is_active } = currentUser;
+
+                document.getElementById('userInfo').innerHTML = `
+                    <p><strong>Email:</strong> ${email}</p>
+                    <p><strong>User ID:</strong> ${id}</p>
+                    <p><strong>Status:</strong> ${is_active ? 'Active' : 'Inactive'}</p>
+                `;
+
+                // Show truncated token for demonstration
+                const token = localStorage.getItem('token');
+                document.getElementById('tokenDisplay').textContent =
+                    token ? `${token.substring(0, 50)}...` : 'No token';
+
+                loadTasks();
+            }
+        };
+
+        const loadTasks = async () => {
+            try {
+                const tasks = await getTasks();
+                const tasksList = document.getElementById('tasksList');
+
+                if (tasks.length === 0) {
+                    tasksList.innerHTML = '<p>No tasks yet.</p>';
+                } else {
+                    // Use map() to transform tasks to HTML
+                    tasksList.innerHTML = tasks.map(task => `
+                        <div style="padding: 0.5rem; border-bottom: 1px solid #eee;">
+                            ${task.completed ? '&#9745;' : '&#9744;'}
+                            ${task.title}
+                        </div>
+                    `).join('');
+                }
+
+                hideError('tasksError');
+            } catch (error) {
+                showError('tasksError', error.message);
+            }
+        };
+
+        // =====================================================================
+        // Event Handlers
+        // =====================================================================
+
+        // Login form
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError('loginError');
+
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                await login(email, password);
+                currentUser = await getCurrentUser();
+                updateUI();
+                e.target.reset();
+            } catch (error) {
+                showError('loginError', error.message);
+            }
+        });
+
+        // Register form
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError('registerError');
+
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+
+            try {
+                await register(email, password);
+                document.getElementById('registerSuccess').textContent =
+                    'Registration successful! Please login.';
+                document.getElementById('registerSuccess').classList.remove('hidden');
+                e.target.reset();
+            } catch (error) {
+                showError('registerError', error.message);
+            }
+        });
+
+        // Create task form
+        document.getElementById('taskForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const title = document.getElementById('taskTitle').value;
+
+            try {
+                await createTask(title);
+                loadTasks();
+                e.target.reset();
+            } catch (error) {
+                showError('tasksError', error.message);
+            }
+        });
+
+        // Toggle between login and register forms
+        document.getElementById('showRegister').addEventListener('click', () => {
+            loginSection.classList.add('hidden');
+            registerSection.classList.remove('hidden');
+        });
+
+        document.getElementById('showLogin').addEventListener('click', () => {
+            registerSection.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+        });
+
+        // Logout button
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+
+        // Refresh user info
+        document.getElementById('refreshUser').addEventListener('click', async () => {
+            try {
+                currentUser = await getCurrentUser();
+                updateUI();
+            } catch (error) {
+                logout();
+            }
+        });
+
+        // =====================================================================
+        // Initialize
+        // Check for existing session on page load
+        // =====================================================================
+        const init = async () => {
+            const token = localStorage.getItem('token');
+
+            if (token) {
+                try {
+                    currentUser = await getCurrentUser();
+                    updateUI();
+                } catch (error) {
+                    // Token invalid or expired - clean up and show login
+                    logout();
+                }
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>

